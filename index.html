@@ -1,12 +1,148 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>HK Hide-and-Seek Game</title>
-    <script type="module" src="/main.jsx"></script>
-  </head>
-  <body class="bg-white text-gray-900 font-sans">
-    <div id="root"></div>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HK Hide and Seek</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+</head>
+<body class="bg-gray-50 p-4">
+  <div id="root"></div>
+  <script type="text/babel">
+
+const { useState } = React;
+
+const players = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank"];
+const stations = ["Central", "Admiralty", "Tsim Sha Tsui", "Mong Kok", "Prince Edward", "Sham Shui Po", "Wan Chai", "Star Ferry"];
+
+const mtrGraph = {
+  "Central": ["Admiralty", "Star Ferry"],
+  "Admiralty": ["Central", "Wan Chai"],
+  "Wan Chai": ["Admiralty", "Tsim Sha Tsui"],
+  "Tsim Sha Tsui": ["Wan Chai", "Mong Kok"],
+  "Mong Kok": ["Tsim Sha Tsui", "Prince Edward"],
+  "Prince Edward": ["Mong Kok", "Sham Shui Po"],
+  "Sham Shui Po": ["Prince Edward"],
+  "Star Ferry": ["Central"]
+};
+
+const challengesPool = [
+  "Sing a Cantonese nursery rhyme",
+  "Spell 'Hong Kong' backwards",
+  "Do 10 jumping jacks in public",
+  "Say a station fact out loud",
+  "Translate 'Hello' into Cantonese",
+  "Name 3 MTR stations in 10 seconds"
+];
+
+function App() {
+  const [teamAssignments, setTeamAssignments] = useState({});
+  const [playerLocations, setPlayerLocations] = useState({});
+  const [challenges, setChallenges] = useState([]);
+  const [challengeFilter, setChallengeFilter] = useState("all");
+
+  const assignTeams = () => {
+    const seekers1 = players.slice(0, 3);
+    const seekers2 = players.slice(3, 6);
+    const startingLocations = Object.fromEntries(players.map(p => [p, "Central"]));
+    setTeamAssignments({ seekers1, seekers2, hiders: [] });
+    setPlayerLocations(startingLocations);
+    setChallenges([]);
+  };
+
+  const movePlayer = (player, destination) => {
+    const current = playerLocations[player];
+    if (!mtrGraph[current]?.includes(destination)) {
+      alert("Invalid move. Not directly connected.");
+      return;
+    }
+    const newLocations = { ...playerLocations, [player]: destination };
+    setPlayerLocations(newLocations);
+
+    const newChallenge = challengesPool[Math.floor(Math.random() * challengesPool.length)];
+    const newChallenges = [...challenges, {
+      player,
+      station: destination,
+      challenge: newChallenge,
+      completed: false
+    }];
+    setChallenges(newChallenges);
+  };
+
+  const toggleChallengeComplete = (index) => {
+    const updated = [...challenges];
+    updated[index].completed = !updated[index].completed;
+    setChallenges(updated);
+  };
+
+  const filteredChallenges = challenges.filter(c => {
+    if (challengeFilter === "done") return c.completed;
+    if (challengeFilter === "notdone") return !c.completed;
+    return true;
+  });
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Hong Kong Hide and Seek Strategy Game</h1>
+      <div className="bg-white rounded shadow p-4 mb-6">
+        <h2 className="text-xl font-semibold">Admin Panel</h2>
+        <button className="bg-blue-500 text-white px-4 py-2 rounded my-2" onClick={assignTeams}>
+          Assign Teams
+        </button>
+        <pre className="bg-gray-100 p-2 rounded overflow-auto text-xs">{JSON.stringify(teamAssignments, null, 2)}</pre>
+      </div>
+
+      {players.map(p => {
+        const role =
+          (teamAssignments.seekers1?.includes(p) || teamAssignments.seekers2?.includes(p)) ? "Seeker" : "Hider";
+        return (
+          <div key={p} className="bg-white rounded shadow p-4 mb-4">
+            <strong>{p}</strong> ({role}) at {playerLocations[p] || "Unknown"}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {(mtrGraph[playerLocations[p]] || []).map(dest => (
+                <button
+                  key={dest}
+                  onClick={() => movePlayer(p, dest)}
+                  className="bg-green-500 text-white px-3 py-1 rounded"
+                >
+                  Move to {dest}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="bg-white rounded shadow p-4 mt-6">
+        <h2 className="text-xl font-semibold mb-2">Challenges</h2>
+        <div className="flex gap-2 mb-2">
+          <button className={`px-3 py-1 rounded ${challengeFilter === "all" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setChallengeFilter("all")}>All</button>
+          <button className={`px-3 py-1 rounded ${challengeFilter === "done" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setChallengeFilter("done")}>Done</button>
+          <button className={`px-3 py-1 rounded ${challengeFilter === "notdone" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setChallengeFilter("notdone")}>Not Done</button>
+        </div>
+        <ul className="space-y-2 text-sm">
+          {filteredChallenges.map((c, i) => (
+            <li key={i} className="flex justify-between items-center">
+              <span>{c.player} at {c.station}: {c.challenge}</span>
+              <button
+                onClick={() => toggleChallengeComplete(i)}
+                className={`px-2 py-1 text-xs rounded ${c.completed ? "bg-green-600 text-white" : "bg-gray-300"}`}
+              >
+                {c.completed ? "✓ Done" : "Mark Done"}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+  </script>
+</body>
 </html>
